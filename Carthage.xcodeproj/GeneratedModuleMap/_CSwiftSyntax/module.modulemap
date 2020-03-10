@@ -1,0 +1,4 @@
+module _CSwiftSyntax {
+    umbrella "/Users/ryan/dev/gitlab.com/meddata1/duet/ios/dependencies/hexicon/.build/checkouts/swift-syntax/Sources/_CSwiftSyntax/include"
+    export *
+}
