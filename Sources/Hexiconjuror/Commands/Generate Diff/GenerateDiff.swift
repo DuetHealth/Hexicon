@@ -130,7 +130,7 @@ fileprivate extension GenerateDiff {
         }
 
         override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
-            guard node.modifiers?.isStatic ?? false else { return .skipChildren }
+            guard inProgressNamespace != nil, node.modifiers?.isStatic ?? false else { return .skipChildren }
             inProgressFunction = FunctionInvocation(name: node.identifier.withoutTrivia().text)
             return .visitChildren
         }

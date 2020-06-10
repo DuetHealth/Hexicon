@@ -25,7 +25,7 @@ struct FunctionInvocation: Hashable, LosslessStringConvertible {
                 self = .empty
                 return
             }
-            if let count = Arguments.unlabeledRegex.firstMatch(in: description).flatMap(Int.init) {
+            if let count = Arguments.unlabeledRegex.capturedGroups(in: description).first.flatMap(Int.init) {
                 self = .unlabeled(count: count)
                 return
             }

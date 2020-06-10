@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
+
 public class Localized {
 
     public class Strings: LocalizationNamespace { }
@@ -15,6 +19,12 @@ public class Localized {
     }
 
     private init() { }
+
+#if canImport(SwiftUI)
+    public class subscript(dynamicMember keyPath: KeyPath<LocalizationNamespace.Type, String>) -> Text {
+        Text(self[keyPath: keyPath])
+    }
+#endif
 
     public static subscript(dynamicMember key: String) -> String {
         fatalError("This call should never be reached.")
