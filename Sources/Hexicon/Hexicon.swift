@@ -32,4 +32,8 @@ public class Localized {
         fatalError("This call should never be reached.")
     }
 
+    public func dynamicallyCall(withArguments arguments: [Any]) -> String {
+        fatalError("This call should never be reached.")
+    }
+
 }
