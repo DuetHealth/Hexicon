@@ -28,7 +28,7 @@ public class Localized {
 
 @dynamicCallable public struct FormattedStringPlaceholder {
 
-    func dynamicallyCall(withKeywordArguments arguments: KeyValuePairs<String, Any>) -> String {
+    public func dynamicallyCall(withKeywordArguments arguments: KeyValuePairs<String, Any>) -> String {
         fatalError("This call should never be reached.")
     }
 
