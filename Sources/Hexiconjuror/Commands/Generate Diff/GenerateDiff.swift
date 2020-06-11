@@ -157,6 +157,7 @@ fileprivate extension GenerateDiff {
         override func visitPost(_ node: FunctionDeclSyntax) {
             guard let function = inProgressFunction else { return }
             inProgressNamespace?.functions.insert(function)
+            inProgressFunction = nil
         }
 
         func generateDiff(between allReferences: AllStringReferences) -> Diff {
