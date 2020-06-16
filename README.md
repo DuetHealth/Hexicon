@@ -2,6 +2,13 @@
 
 Hexicon for painless localizations.
 
+## Usage
+
+_Coming soon_
+
+## Install the tool
+
+`swift build -c release && mv .build/release/hexiconj /usr/local/bin`
 
 ## License
 
