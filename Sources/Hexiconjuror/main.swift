@@ -72,7 +72,7 @@ extension CommandRegistry {
 #if DEBUG
 print(FileManager.default.currentDirectoryPath)
 let environment = DebugVariables([
-    "PROJECT_DIR": "file:///users/ryan/dev/dev.azure.com/nuanceninjas/CAPD_CDE_Mobile/smaug_ios"//(#file.components(separatedBy: "Sources").first! as NSString).appendingPathComponent("Sample")
+    "PROJECT_DIR": (#file.components(separatedBy: "Sources").first! as NSString).appendingPathComponent("Sample")
 ])
 #else
 let environment = EnvironmentVariables()
