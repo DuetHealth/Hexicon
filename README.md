@@ -4,29 +4,7 @@ Hexicon for painless localizations.
 
 ## Usage
 
-### Installation
-
-### [Swift Package Manager](https://github.com/apple/swift-package-manager)
-
-Create a `Package.swift` file.
-
-```swift
-// swift-tools-version:5.2
-
-import PackageDescription
-
-let package = Package(
-  name: "TestProject",
-  dependencies: [
-    .package(url: "https://github.com/DuetHealth/Hexicon.git", from: "1.0.0")
-  ],
-  targets: [
-    .target(name: "TestProject", dependencies: ["Hexicon"])
-  ]
-)
-```
-
-_Coming Soon: Carthage and Cocoapods_
+_Coming soon_
 
 ## Install the tool
 
