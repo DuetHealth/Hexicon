@@ -4,9 +4,11 @@ struct FunctionBody: SyntaxElement {
 
     private var children: [SyntaxElement]
 
+#if swift(<5.3)
     init(_ child: () -> SyntaxElement) {
         self.children = [child()]
     }
+#endif
 
     init(@SyntaxBuilder children: () -> [SyntaxElement]) {
         self.children = children()

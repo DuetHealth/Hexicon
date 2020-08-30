@@ -14,8 +14,8 @@ final class GenerateDiff: ConjurorCommand {
 
         static func evaluate(_ m: CommandMode) -> Result<GenerateDiff.Options, CommandantError<ConjurorError>> {
             create
-                <*> m <| Option(key: "defPath", defaultValue: "", usage: "Relative path to the files which contain the string definition namespaces.")
-                <*> m <| Option(key: "scanPath", defaultValue: nil, usage: "Relative path to the files which should be scanned for string usages.")
+                <*> m <| Option(key: "def-path", defaultValue: "", usage: "Relative path to the files which contain the string definition namespaces.")
+                <*> m <| Option(key: "scan-path", defaultValue: nil, usage: "Relative path to the files which should be scanned for string usages.")
         }
 
         let definitionsPath: String
