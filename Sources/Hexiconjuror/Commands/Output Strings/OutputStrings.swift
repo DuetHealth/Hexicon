@@ -15,7 +15,7 @@ final class OutputStrings: ConjurorCommand {
             create
                 <*> m <| Option(key: "def-path", defaultValue: "", usage: "Relative path to the files which contain the string definition namespaces.")
                 <*> m <| Option(key: "res-path", defaultValue: "", usage: "Relative path to the strings files.")
-                <*> m <| Option(key: "lang", defaultValue: "en", usage: "The development language for the project (the default lproj.) Defaults to 'en'.")
+                <*> m <| Option(key: "lang", defaultValue: "en", usage: "The development language for the project (the default lproj.) Defaults to 'en'. Any unlocalized files, files in the development language lproj, or files in the base lrpoj will be scanned.")
                 <*> m <| Switch(key: "strip-comments", usage: "Whether to remove from the output file any strings which have no engineer-provided comment.")
         }
 
@@ -31,12 +31,19 @@ final class OutputStrings: ConjurorCommand {
     private let parser = StringsParser()
 
     func run(_ options: OutputStrings.Options) -> Result<(), ConjurorError> {
-        let sourceFiles = FileManager.default.enumerator(at: environment.projectPath.appendingPathComponent(options.definitionsPath), includingPropertiesForKeys: [.isRegularFileKey])?
+        let sourcePath = environment.projectPath.appendingPathComponent(options.definitionsPath)
+        let sourceFiles = FileManager.default.enumerator(at: sourcePath, includingPropertiesForKeys: [.isRegularFileKey])?
             .compactMap { $0 as? URL }
             .filter { $0.pathExtension == "swift" } ?? []
-        let stringsFiles = FileManager.default.enumerator(at: environment.projectPath.appendingPathComponent(options.resourcesPath), includingPropertiesForKeys: [.isRegularFileKey])?
+        let resourcesPath = environment.projectPath.appendingPathComponent(options.resourcesPath)
+        let stringsFiles = FileManager.default.enumerator(at: resourcesPath, includingPropertiesForKeys: [.isRegularFileKey])?
             .compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "strings" } ?? []
+            .filter { fileURL in
+                guard fileURL.pathExtension == "strings" else { return false }
+                let parentDirectory = fileURL.deletingLastPathComponent()
+                if parentDirectory.pathExtension == "lproj" { return [options.language, "Base"].contains(parentDirectory.resourceName) }
+                return true
+            } ?? []
         let temporaryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         return Result {
             try FileManager.default.createDirectory(atPath: temporaryDirectory.path, withIntermediateDirectories: false, attributes: nil)
@@ -52,28 +59,41 @@ final class OutputStrings: ConjurorCommand {
                 localize.waitUntilExit()
             }
             .flatMapCatching {
-                let existingStrings = try stringsFiles.map {
+                let existingTables = try stringsFiles.map {
                     try Table(url: $0, strings: parser.parse(file: $0))
                 }
-                let newStrings = try FileManager.default.contentsOfDirectory(at: temporaryDirectory, includingPropertiesForKeys: [.isRegularFileKey], options: [])
+                let newTables = try FileManager.default.contentsOfDirectory(at: temporaryDirectory, includingPropertiesForKeys: [.isRegularFileKey], options: [])
                     .filter { $0.pathExtension == "strings" }
                     .map { return try Table(url: $0, strings: parser.parse(file: $0)) }
-                return newStrings.map { new in
-                    guard var existing = existingStrings.first(where: { $0.name == new.name }) else { return new }
-                    new.strings.forEach {
-                        if existing.strings[$0.key] != nil { return }
-                        existing.strings[$0.key] = $0.value
+                return newTables.map { newTable in
+                    guard var existingTable = existingTables.first(where: { $0.name == newTable.name }) else {
+                        return mutate(newTable) { $0.url = resourcesPath.appendingPathComponent("\($0.name).strings") }
                     }
-                    return existing
-                } as [Table]
+                    newTable.strings.forEach { newString in
+                        guard var string = existingTable.strings[newString.key] else {
+                            existingTable.strings[newString.key] = newString.value
+                            return
+                        }
+                        if string.hasEmptyComment {
+                            string.comment = newString.value.comment
+                        }
+                        existingTable.strings[newString.key] = string
+                    }
+                    existingTable.strings = existingTable.strings.filter {
+                        newTable.strings[$0.key] != nil
+                    }
+                    return existingTable
+                }
             }
             .flatMapCatching { (tables: [Table]) in
                 try tables.forEach { table in
                     let oldFile = temporaryDirectory.appendingPathComponent(UUID().uuidString)
                     let tempFile = temporaryDirectory.appendingPathComponent(UUID().uuidString)
                     FileManager.default.createFile(atPath: tempFile.path, contents: nil, attributes: nil)
-                    try table.write(to: tempFile)
-                    try FileManager.default.moveItem(at: table.url, to: oldFile)
+                    try table.write(to: tempFile, stripEmptyComments: options.stripEmptyComments)
+                    if FileManager.default.fileExists(atPath: table.url.path) {
+                        try FileManager.default.moveItem(at: table.url, to: oldFile)
+                    }
                     do {
                         try FileManager.default.moveItem(at: tempFile, to: table.url)
                     } catch {
@@ -94,14 +114,12 @@ extension OutputStrings {
         var url: URL
         var strings: [String: LocalizedString]
 
-        var name: String {
-            url.lastPathComponent.components(separatedBy: ".").first ?? ""
-        }
+        var name: String { url.resourceName }
 
-        func write(to url: URL) throws {
+        func write(to url: URL, stripEmptyComments: Bool) throws {
             var stream = try FileOutputStream(url: url)
             strings.sorted(by: \.key).map(\.value).map {
-                [$0.comment, #""\#($0.key)" = "\#($0.value)";"#, "\n"].joined(separator: "\n")
+                (($0.hasEmptyComment && stripEmptyComments ? [] : [$0.comment]) + [#""\#($0.key)" = "\#($0.value)";"#, "\n"]).joined(separator: "\n")
             }
                 .joined()
                 .write(to: &stream)
@@ -110,9 +128,17 @@ extension OutputStrings {
     }
 
     private struct LocalizedString {
+
+        static var emptyComment: String { "/* No comment provided by engineer. */" }
+
         var comment: String
         var key: String
         var value: String
+
+        var hasEmptyComment: Bool {
+            comment == type(of: self).emptyComment
+        }
+
     }
 
 
