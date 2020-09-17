@@ -4,10 +4,6 @@ struct FunctionBody: SyntaxElement {
 
     private var children: [SyntaxElement]
 
-    init(_ child: () -> SyntaxElement) {
-        self.children = [child()]
-    }
-
     init(@SyntaxBuilder children: () -> [SyntaxElement]) {
         self.children = children()
     }

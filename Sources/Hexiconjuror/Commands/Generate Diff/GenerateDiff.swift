@@ -142,7 +142,7 @@ fileprivate extension GenerateDiff {
             if isUnlabeled {
                 inProgressFunction?.arguments = .unlabeled(count: node.parameterList.count)
             } else {
-                inProgressFunction?.arguments = .labeled(node.parameterList.map { String(describing: $0.firstName!) })
+                inProgressFunction?.arguments = .labeled(node.parameterList.map { String(describing: $0.firstName!.withoutTrailingTrivia()) })
             }
             return .visitChildren
         }
