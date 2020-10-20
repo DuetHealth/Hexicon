@@ -17,7 +17,7 @@ final class GenerateNamespace: ConjurorCommand {
         static func evaluate(_ m: CommandMode) -> Result<GenerateNamespace.Options, CommandantError<ConjurorError>> {
             create
                 <*> m <| Option(key: "name", defaultValue: "", usage: "The name of the new namespace. Required.")
-                <*> m <| Option(key: "outputPath", defaultValue: nil, usage: "The path to the new file. If the path does not end in a file name, the file name 'Strings.swift' is used.")
+                <*> m <| Option(key: "output-path", defaultValue: nil, usage: "The path to the new file. If the path does not end in a file name, the file name 'Strings.swift' is used.")
         }
 
     }

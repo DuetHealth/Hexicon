@@ -12,9 +12,7 @@ final class RunGeneration: ConjurorCommand {
         let generateDiff = GenerateDiff().with(environment)
         let generateSource = GenerateSource().with(environment)
         return generateDiff.run(options.options1)
-            .flatMap {
-                generateSource.run(options.options2.with(diff: $0))
-        }
+            .flatMap { generateSource.run(options.options2.with(diff: $0)) }
     }
 
 }
