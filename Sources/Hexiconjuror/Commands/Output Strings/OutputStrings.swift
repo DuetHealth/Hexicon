@@ -7,21 +7,19 @@ final class OutputStrings: ConjurorCommand {
     struct Options: OptionsProtocol {
         typealias ClientError = ConjurorError
 
-        static func create(_ definitionsPath: String) -> (String) -> (String) -> (Bool) -> Options {
-            { resourcesPath in { language in { Options(definitionsPath: definitionsPath, resourcesPath: resourcesPath, language: language, stripEmptyComments: $0) } } }
+        static func create(_ definitionsPath: String) -> (String) -> (Bool) -> Options {
+            { resourcesPath in { Options(definitionsPath: definitionsPath, resourcesPath: resourcesPath, stripEmptyComments: $0) } }
         }
 
         static func evaluate(_ m: CommandMode) -> Result<OutputStrings.Options, CommandantError<ConjurorError>> {
             create
                 <*> m <| Option(key: "def-path", defaultValue: "", usage: "Relative path to the files which contain the string definition namespaces.")
                 <*> m <| Option(key: "res-path", defaultValue: "", usage: "Relative path to the strings files.")
-                <*> m <| Option(key: "lang", defaultValue: "en", usage: "The development language for the project (the default lproj.) Defaults to 'en'. Any unlocalized files, files in the development language lproj, or files in the base lrpoj will be scanned.")
-                <*> m <| Switch(key: "strip-comments", usage: "Whether to remove from the output file any strings which have no engineer-provided comment.")
+                <*> m <| Switch(key: "strip-comments", usage: "Whether to remove from the output file which have no engineer-provided comment.")
         }
 
         let definitionsPath: String
         let resourcesPath: String
-        let language: String
         let stripEmptyComments: Bool
 
     }
@@ -31,19 +29,14 @@ final class OutputStrings: ConjurorCommand {
     private let parser = StringsParser()
 
     func run(_ options: OutputStrings.Options) -> Result<(), ConjurorError> {
-        let sourcePath = environment.projectPath.appendingPathComponent(options.definitionsPath)
+        let sourcePath = options.definitionsPath.isEmpty ? environment.projectPath : environment.projectPath.appendingPathComponent(options.definitionsPath)
         let sourceFiles = FileManager.default.enumerator(at: sourcePath, includingPropertiesForKeys: [.isRegularFileKey])?
             .compactMap { $0 as? URL }
             .filter { $0.pathExtension == "swift" } ?? []
-        let resourcesPath = environment.projectPath.appendingPathComponent(options.resourcesPath)
+        let resourcesPath = options.resourcesPath.isEmpty ? environment.projectPath : environment.projectPath.appendingPathComponent(options.resourcesPath)
         let stringsFiles = FileManager.default.enumerator(at: resourcesPath, includingPropertiesForKeys: [.isRegularFileKey])?
             .compactMap { $0 as? URL }
-            .filter { fileURL in
-                guard fileURL.pathExtension == "strings" else { return false }
-                let parentDirectory = fileURL.deletingLastPathComponent()
-                if parentDirectory.pathExtension == "lproj" { return [options.language, "Base"].contains(parentDirectory.resourceName) }
-                return true
-            } ?? []
+            .filter { $0.pathExtension == "strings" } ?? []
         let temporaryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         return Result {
             try FileManager.default.createDirectory(atPath: temporaryDirectory.path, withIntermediateDirectories: false, attributes: nil)
@@ -65,25 +58,30 @@ final class OutputStrings: ConjurorCommand {
                 let newTables = try FileManager.default.contentsOfDirectory(at: temporaryDirectory, includingPropertiesForKeys: [.isRegularFileKey], options: [])
                     .filter { $0.pathExtension == "strings" }
                     .map { return try Table(url: $0, strings: parser.parse(file: $0)) }
-                return newTables.map { newTable in
-                    guard var existingTable = existingTables.first(where: { $0.name == newTable.name }) else {
-                        return mutate(newTable) { $0.url = resourcesPath.appendingPathComponent("\($0.name).strings") }
+                return Array(newTables.map { newTable -> [Table] in
+                    let matches = existingTables.filter { $0.name == newTable.name }
+                    guard !matches.isEmpty else {
+                        return [mutate(newTable) { $0.url = resourcesPath.appendingPathComponent("\($0.name).strings") }]
                     }
-                    newTable.strings.forEach { newString in
-                        guard var string = existingTable.strings[newString.key] else {
-                            existingTable.strings[newString.key] = newString.value
-                            return
+                    return matches.map {
+                        var matchingTable = $0
+                        newTable.strings.forEach { newString in
+                            guard var string = matchingTable.strings[newString.key] else {
+                                matchingTable.strings[newString.key] = newString.value
+                                return
+                            }
+                            if string.hasEmptyComment {
+                                string.comment = newString.value.comment
+                            }
+                            matchingTable.strings[newString.key] = string
                         }
-                        if string.hasEmptyComment {
-                            string.comment = newString.value.comment
+                        matchingTable.strings = matchingTable.strings.filter {
+                            newTable.strings[$0.key] != nil
                         }
-                        existingTable.strings[newString.key] = string
+                        return matchingTable
                     }
-                    existingTable.strings = existingTable.strings.filter {
-                        newTable.strings[$0.key] != nil
-                    }
-                    return existingTable
                 }
+                    .joined())
             }
             .flatMapCatching { (tables: [Table]) in
                 try tables.forEach { table in
